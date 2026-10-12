@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/context/ThemeContext'
+import StoreBootstrap from '@/components/StoreBootstrap'
 
 export const metadata: Metadata = {
   title: 'Oversight Arena — AI Safety Benchmark',
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-theme="light">
       <body>
         <ThemeProvider>
+          <StoreBootstrap />
           {children}
         </ThemeProvider>
       </body>

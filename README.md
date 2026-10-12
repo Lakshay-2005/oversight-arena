@@ -81,6 +81,8 @@ Evaluated on 30 disjoint held-out seeds. Decoding used sampled completions with 
 | **GRPO Run 2** — fixed d=0.4, 128 prompts | **0.200 (+6%)** | 1.5B | confirmation run |
 | Groq Llama-3.3-70B zero-shot | 0.283 | 70B | external reference |
 
+Percentages are relative to the baseline F1. For Run 2 the committed files (`results/eval_baseline_summary.json`, `results/eval_grpo_summary.json`) give 0.189 → 0.200, i.e. +0.011 absolute (+5.9% relative), with mean reward 0.069 → 0.067. Run 1's raw evaluation files are not in `results/`. The dashboard's Results page reads these JSON files directly.
+
 Both independent GRPO runs improved F1 at the d=0.4 signal tier. The best trained 1.5B overseer reaches **~86% of Groq 70B zero-shot F1 at 1/47th the parameter count**.
 
 ### Policy shift after GRPO
@@ -272,7 +274,7 @@ Every term is computed from planted ground truth. There is no subjective scoring
 | TRL GRPO trainer | `scripts/train_grpo.py` | ✅ |
 | Colab notebook | `scripts/train_grpo.ipynb` | ✅ |
 | Frontend demo | `oversight-arena-ui/` | ✅ |
-| Tests | `tests/` | ✅ 126 passing |
+| Tests | `tests/` (backend, `pytest`), `oversight-arena-ui/tests/` (frontend, `npm test`) | ✅ 19 backend + 46 frontend passing at last check |
 | Training logs | `results/grpo_log_history.json` | ✅ |
 | Training summary | `results/training_summary.json` | ✅ |
 | Reward/loss curves | `results/reward_curve.svg`, `results/loss_curve.svg` | ✅ |
@@ -281,6 +283,29 @@ Every term is computed from planted ground truth. There is no subjective scoring
 | Full writeup | `docs/writeup.md` | ✅ |
 
 ---
+
+## Run the dashboard locally
+
+The UI (`oversight-arena-ui/`, Next.js static export) has two data sources that are kept separate:
+recorded results from `results/` (copied into the export by `scripts/sync-results.mjs` on every `npm run dev` / `npm run build`)
+and a live episode from the backend API. The live panel is a scripted keyword-rule panel, not the trained model.
+
+```bash
+# 1) backend (local, so resets do not touch a shared Space)
+pip install -e ".[test]"
+uvicorn oversight_arena.server.app:app --port 7860
+
+# 2) frontend dev server on :3000 (needs the API URL because Next's static-export dev server has no proxy)
+cd oversight-arena-ui
+npm ci
+NEXT_PUBLIC_API_BASE=http://127.0.0.1:7860/api npm run dev     # PowerShell: $env:NEXT_PUBLIC_API_BASE="http://127.0.0.1:7860/api"; npm run dev
+
+# checks
+npm run lint && npm test && npm run build
+```
+
+Combined app (as deployed): `docker build -t oversight-arena . && docker run -p 7860:7860 oversight-arena`, then open http://localhost:7860.
+Same-origin `/api` is the default, so no variable is needed there. See `oversight-arena-ui/.env.example`.
 
 ## Reproduce
 

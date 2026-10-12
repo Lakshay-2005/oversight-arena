@@ -1,111 +1,183 @@
-
 'use client'
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useArenaStore } from '@/store/arenaStore'
-import NavBar from '@/components/NavBar'
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine,
-} from 'recharts'
-import { AlertOctagon, CheckCircle, TrendingUp, Award, Shield, ArrowLeft } from 'lucide-react'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
+import NavBar from '@/components/NavBar'
+import StatusBanner from '@/components/StatusBanner'
+import EpisodeGate from '@/components/EpisodeGate'
+import BestResultHero from '@/components/BestResultHero'
+import RecordedComparison from '@/components/RecordedComparison'
+import TrainingRewardChart from '@/components/TrainingRewardChart'
+import ScriptedPanelNote from '@/components/ScriptedPanelNote'
+import { useResults } from '@/hooks/useResults'
+import { fmtMetric, type OtherExperiments, type Section } from '@/lib/evaluation'
+import type { Episode } from '@/types'
+import { AlertOctagon, CheckCircle, ArrowLeft } from 'lucide-react'
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1], delay },
+  transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as [number, number, number, number], delay },
 })
 
-function AnimatedNumber({ value, decimals = 2 }: { value: number; decimals?: number }) {
-  const [cur, setCur] = useState(0)
-  useEffect(() => {
-    const start = cur, end = value, dur = 900, t0 = Date.now()
-    const tick = () => {
-      const p = Math.min((Date.now() - t0) / dur, 1)
-      const e = 1 - Math.pow(1 - p, 3)
-      setCur(start + (end - start) * e)
-      if (p < 1) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-  }, [value])
-  return <>{cur.toFixed(decimals)}</>
+const H2: React.CSSProperties = { fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', color: 'var(--text-1)', marginBottom: 6 }
+const LEAD: React.CSSProperties = { fontSize: 14, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 16, maxWidth: 680 }
+
+function SectionState<T>({ section, children }: { section: Section<T> | undefined; children: (data: T) => React.ReactNode }) {
+  if (section === undefined) {
+    return (
+      <div className="card" style={{ padding: 28, textAlign: 'center', color: 'var(--text-3)', fontSize: 14 }} role="status">
+        Loading recorded results…
+      </div>
+    )
+  }
+  if (!section.ok) {
+    return (
+      <div className="note-box" role="alert" style={{ borderColor: 'var(--red-border)', background: 'var(--red-bg)' }}>
+        <strong>Recorded results unavailable.</strong> {section.error}
+      </div>
+    )
+  }
+  return <>{children(section.data)}</>
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null
+function OtherExperimentsTable({ data }: { data: OtherExperiments }) {
   return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)',
-      borderRadius: 8, padding: '8px 14px',
-      boxShadow: 'var(--shadow-md)',
-    }}>
-      <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 2 }}>Step {label}</p>
-      <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>
-        Reward: {payload[0].value.toFixed(3)}
+    <div className="card" style={{ padding: 24 }}>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Experiment</th>
+              <th>n</th>
+              <th>Mean F1</th>
+              <th>Mean reward</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.ablation.map((r) => (
+              <tr key={r.key}>
+                <td>Ablation · {r.label}</td>
+                <td className="num">{r.n}</td>
+                <td className="num">{fmtMetric(r.meanF1)}</td>
+                <td className="num">{fmtMetric(r.meanReward)}</td>
+              </tr>
+            ))}
+            {data.groq && (
+              <tr>
+                <td>
+                  Reference · {data.groq.label} zero-shot (difficulty {data.groq.difficulty})
+                </td>
+                <td className="num">{data.groq.n}</td>
+                <td className="num">{fmtMetric(data.groq.meanF1)}</td>
+                <td className="num">{fmtMetric(data.groq.meanReward)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6, marginTop: 14 }}>
+        Source: {data.sources.map((s) => `results/${s}`).join(', ')}. These use a different sample count (n = 20) than the Run 1 and Run 2 results above, so the F1
+        values are not comparable with them. The ablation file does not record a difficulty. GRPO Run 1 appears only as the documentation-reported
+        headline in section 1; its raw evaluation files are not in <code>results/</code>, so no further Run 1 detail is shown.
       </p>
     </div>
   )
 }
 
-function VoteCard({ vote, index }: { vote: any; index: number }) {
-  const isFlag = vote.action === 'FLAG'
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), index * 150)
-    return () => clearTimeout(t)
-  }, [index])
+function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="card" style={{ padding: '16px 18px' }}>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6 }}>{label}</p>
+      <p className="num" style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-1)' }}>{value}</p>
+      {sub && <p style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.4 }}>{sub}</p>}
+    </div>
+  )
+}
+
+function LiveEpisode({ episode: ep }: { episode: Episode }) {
+  const g = ep.grade
+  const flagged = ep.decision.action === 'flag_worker'
+  const bad = ep.outcome.kind === 'wrong' || ep.outcome.kind === 'missed'
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: '22px',
-        textAlign: 'center',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(10px)',
-        transition: 'opacity 0.4s ease, transform 0.4s ease',
-      }}
-    >
-      <p style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '-0.01em', marginBottom: 8, fontFamily: 'DM Mono, monospace' }}>
-        Overseer {vote.overseerId}
-      </p>
-      <div style={{
-        width: 52, height: 52, borderRadius: 14,
-        background: isFlag ? 'var(--red-bg)' : 'var(--green-bg)',
-        border: `1px solid ${isFlag ? 'var(--red-border)' : 'var(--green-border)'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        margin: '0 auto 12px',
-      }}>
-        {isFlag
-          ? <AlertOctagon size={22} color="var(--red)" />
-          : <CheckCircle size={22} color="var(--green)" />}
+    <>
+      <div className="grid-votes" style={{ marginBottom: 20 }}>
+        {ep.votes.map((v) => {
+          const flag = v.action === 'FLAG'
+          const rev = ep.reviewers.find((r) => r.id === v.reviewerId)
+          return (
+            <div key={v.reviewerId} className="card" style={{ padding: '18px 12px', textAlign: 'center' }}>
+              <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 8, fontFamily: 'DM Mono, monospace' }}>
+                Heuristic {v.reviewerId}
+                {rev ? ` · ${rev.profile}` : ''}
+              </p>
+              <span className={`badge ${flag ? 'badge-red' : 'badge-green'}`} style={{ fontSize: 13, padding: '5px 12px' }}>
+                {flag ? <AlertOctagon size={12} /> : <CheckCircle size={12} />}
+                {flag ? `FLAG ${v.target}` : 'PASS'}
+              </span>
+            </div>
+          )
+        })}
       </div>
-      <span className={`badge ${isFlag ? 'badge-red' : 'badge-green'}`} style={{ fontSize: 14, padding: '6px 16px' }}>
-        {vote.action}
-      </span>
-    </div>
+
+      <motion.div
+        {...fadeUp(0)}
+        style={{
+          borderRadius: 16,
+          padding: '28px 24px',
+          marginBottom: 20,
+          background: bad ? 'var(--red-bg)' : 'var(--green-bg)',
+          border: `1px solid ${bad ? 'var(--red-border)' : 'var(--green-border)'}`,
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 8, fontWeight: 500 }}>
+          Scripted panel decision · graded against environment ground truth
+        </p>
+        <h3 style={{ fontSize: 24, fontWeight: 600, color: bad ? 'var(--red)' : 'var(--green)', letterSpacing: '-0.03em' }}>
+          {flagged ? `FLAG ${ep.decision.worker}` : 'ACCEPT ALL'}
+        </h3>
+        <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 8, lineHeight: 1.5 }}>{ep.outcome.text}</p>
+        <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 6 }}>
+          {ep.decision.flagVotes} of {ep.decision.totalVotes} reviewers voted FLAG (≥ 2 needed)
+        </p>
+      </motion.div>
+
+      <div className="grid-stats" style={{ marginBottom: 14 }}>
+        <Tile
+          label="Episode F1 (this one episode)"
+          value={g.f1 === null ? '—' : g.f1.toFixed(2)}
+          sub={
+            g.f1 === null
+              ? 'The backend returned no valid F1.'
+              : ep.groundTruthMalicious.length === 0 && g.fp === 0
+                ? 'Clean episode with no flags: the grader scores this 1.00 by convention.'
+                : 'Single-episode F1 from /grader.'
+          }
+        />
+        <Tile label="Precision / recall" value={`${g.precision.toFixed(2)} / ${g.recall.toFixed(2)}`} sub={`TP ${g.tp} · FP ${g.fp} · FN ${g.fn}`} />
+        <Tile
+          label={g.done ? 'Terminal reward' : 'Reward so far (mean per step)'}
+          value={g.reward.toFixed(3)}
+          sub={g.done ? 'Episode finished.' : `Episode not finished: ${g.stepCount} of ${ep.maxTurns} steps used, so this is not the terminal reward.`}
+        />
+        <Tile label="Ground-truth malicious" value={ep.groundTruthMalicious.length ? ep.groundTruthMalicious.join(', ') : 'none'} sub={g.guardrails.length ? `Guardrails: ${g.guardrails.join(', ')}` : 'No guardrails triggered'} />
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>
+        Per-step reward: R = 0.65·F1 + 0.20·early + 0.10·recall − 0.20·FP-rate (see <code>oversight_arena/oversight_rewards.py</code>; terminal rewards also apply
+        guardrails). One episode says nothing about model quality; use the recorded evaluation above for that.
+      </p>
+    </>
   )
 }
 
 export default function ResultsPage() {
-  const { votes, finalDecision, rewardHistory, f1Score, mode, bugDetected } = useArenaStore()
-  const flagCount = votes.filter((v: any) => v.action === 'FLAG').length
-  const isMajorityFlag = flagCount >= 2
-  const isTrained = mode === 'trained'
-
-  const [bannerReady, setBannerReady] = useState(false)
-  useEffect(() => {
-    setBannerReady(false)
-    const t = setTimeout(() => setBannerReady(true), 850)
-    return () => clearTimeout(t)
-  }, [finalDecision])
+  const results = useResults()
 
   return (
     <>
       <NavBar />
       <main className="page-enter">
-        {/* Page header */}
         <section style={{ padding: '55px 0 44px', borderBottom: '1px solid var(--border)' }}>
           <div className="page-container">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 22, flexWrap: 'wrap' }}>
@@ -116,11 +188,10 @@ export default function ResultsPage() {
                 <motion.h1 {...fadeUp(0.06)} style={{ fontSize: 40, fontWeight: 600, letterSpacing: '-0.04em', color: 'var(--text-1)', marginBottom: 10 }}>
                   Results
                 </motion.h1>
-                <motion.p {...fadeUp(0.1)} style={{ fontSize: 17, color: 'var(--text-2)', lineHeight: 1.5, letterSpacing: '-0.02em', maxWidth: 480 }}>
-                  Majority vote determines the final decision. The reward function measures detection quality.
+                <motion.p {...fadeUp(0.1)} style={{ fontSize: 17, color: 'var(--text-2)', lineHeight: 1.5, letterSpacing: '-0.02em', maxWidth: 560 }}>
+                  The documented best run, the committed Run 2 evaluation, training history and the live episode are different things and are kept in separate sections below.
                 </motion.p>
               </div>
-              {/* FIX: was className="btn-ghost" — needs both btn + btn-ghost */}
               <motion.div {...fadeUp(0.12)}>
                 <Link href="/analysis">
                   <button className="btn btn-ghost" style={{ fontSize: 14 }}>
@@ -134,193 +205,72 @@ export default function ResultsPage() {
 
         <section style={{ padding: '44px 0 88px' }}>
           <div className="page-container">
-
-            {/* VOTE BREAKDOWN */}
-            <div style={{ marginBottom: 32 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', color: 'var(--text-1)', marginBottom: 16 }}>
-                Vote breakdown
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                {votes.map((v: any, i: number) => <VoteCard key={v.overseerId} vote={v} index={i} />)}
-              </div>
+            <div style={{ marginBottom: 48 }}>
+              <h2 style={H2}>1 · Best result: GRPO Run 1 (documented)</h2>
+              <p style={LEAD}>The README&apos;s headline result. It is reported by the project documentation; its raw evaluation files are not in the repository.</p>
+              <SectionState section={results?.documented}>{(d) => <BestResultHero best={d} />}</SectionState>
             </div>
 
-            {/* FINAL DECISION — FIX: replaced var(--danger-bg/bdr/txt) and var(--success-*) with real variables */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={finalDecision + String(bannerReady)}
-                initial={{ opacity: 0, scale: 0.92, y: 8 }}
-                animate={bannerReady
-                  ? { opacity: 1, scale: 1, y: 0 }
-                  : { opacity: 0, scale: 0.92, y: 8 }
-                }
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  marginBottom: 32,
-                  borderRadius: 18,
-                  padding: '44px 40px',
-                  background: isMajorityFlag ? 'var(--red-bg)' : 'var(--green-bg)',
-                  border: `1px solid ${isMajorityFlag ? 'var(--red-border)' : 'var(--green-border)'}`,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{
-                  width: 64, height: 64, borderRadius: 18,
-                  background: isMajorityFlag ? 'var(--red)' : 'var(--green)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 20px',
-                }}>
-                  {isMajorityFlag
-                    ? <AlertOctagon size={28} color="#fff" />
-                    : <CheckCircle size={28} color="#fff" />}
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--text-3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 10, fontWeight: 500 }}>
-                  Final Decision
-                </p>
-                <h2 style={{
-                  fontSize: 28, fontWeight: 600,
-                  color: isMajorityFlag ? 'var(--red)' : 'var(--green)',
-                  letterSpacing: '-0.03em',
-                }}>
-                  {finalDecision}
-                </h2>
-                <p style={{ fontSize: 15, color: 'var(--text-3)', marginTop: 8, letterSpacing: '-0.01em' }}>
-                  {flagCount} of {votes.length} overseers voted FLAG
-                </p>
-              </motion.div>
-            </AnimatePresence>
+            <div style={{ marginBottom: 48 }}>
+              <h2 style={H2}>2 · Run 2 confirmation: baseline vs GRPO (committed files)</h2>
+              <p style={LEAD}>
+                A separate run, fixed difficulty 0.4, measured from the committed evaluation files. Its trained F1 is <strong>not</strong> the Run 1 figure above; the two
+                runs are never combined.
+              </p>
+              <SectionState section={results?.comparison}>{(c) => <RecordedComparison comparison={c} />}</SectionState>
+            </div>
 
-            <div style={{ borderTop: '1px solid var(--border)', margin: '32px 0' }} />
-
-            {/* F1 SCORE + REWARD CHART */}
-            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 24, alignItems: 'start' }}>
-
-              {/* F1 score panel */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <motion.div {...fadeUp(0)} className="card" style={{ padding: '28px 24px', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-                    <Award size={15} color="var(--text-3)" />
-                    <span style={{ fontSize: 13, color: 'var(--text-3)', letterSpacing: '-0.01em' }}>F1 Score</span>
+            <div style={{ marginBottom: 48 }}>
+              <h2 style={H2}>3 · Training history (Run 2)</h2>
+              <p style={LEAD}>
+                Mean reward the GRPO trainer logged at each step. This is the training signal on training prompts, not held-out F1, so its level cannot be compared
+                with the F1 values above.
+              </p>
+              <SectionState section={results?.training}>
+                {(h) => (
+                  <div className="card" style={{ padding: 24 }}>
+                    <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 12 }}>
+                      {h.title} · {h.stats.n} logged steps · mean <span className="num">{h.stats.mean.toFixed(3)}</span> · min <span className="num">{h.stats.min.toFixed(3)}</span> · max{' '}
+                      <span className="num">{h.stats.max.toFixed(3)}</span> · {h.meta.model}, {h.meta.epochs} epochs, {h.meta.numGenerations} generations/prompt,
+                      lr {h.meta.learningRate.toExponential(0)}, KL β {h.meta.klBeta}
+                    </p>
+                    <TrainingRewardChart history={h} />
+                    <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6, marginTop: 10 }}>
+                      Source: results/{h.source}. The thin line is the raw logged reward; the thick line is a 10-step trailing average. Reward can be negative.
+                    </p>
+                    {h.warnings.length > 0 && (
+                      <div className="note-box" role="alert" style={{ marginTop: 12, borderColor: 'var(--amber-border)', background: 'var(--amber-bg)' }}>
+                        <strong>Data consistency warning:</strong> {h.warnings.join('; ')}
+                      </div>
+                    )}
                   </div>
-                  <AnimatePresence mode="wait">
-                    <motion.p
-                      key={mode}
-                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      style={{
-                        fontSize: 56, fontWeight: 600, letterSpacing: '-0.04em',
-                        color: isTrained ? 'var(--accent)' : 'var(--text-1)',
-                        lineHeight: 1,
-                      }}
-                    >
-                      <AnimatedNumber value={f1Score} />
-                    </motion.p>
-                  </AnimatePresence>
-                  <motion.p
-                    key={`delta-${mode}`}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    style={{ fontSize: 14, marginTop: 8, color: isTrained ? 'var(--green)' : 'var(--red)', fontWeight: 500 }}
-                  >
-                    {isTrained ? '↑ +0.29 vs baseline' : '↓ −0.29 vs trained'}
-                  </motion.p>
-                </motion.div>
-
-                {/* Comparison bar */}
-                <motion.div {...fadeUp(0.05)} className="card" style={{ padding: '20px 22px' }}>
-                  <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 14, letterSpacing: '-0.01em', fontWeight: 500 }}>
-                    Model comparison
-                  </p>
-                  {[
-                    { label: 'Baseline', value: 0.42, color: 'var(--text-3)' },
-                    { label: 'GRPO trained', value: 0.71, color: 'var(--accent)' },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ marginBottom: 14 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 13, color: 'var(--text-1)', letterSpacing: '-0.01em' }}>{label}</span>
-                        <span style={{ fontSize: 13, fontWeight: 500, color, fontFamily: 'DM Mono, monospace' }}>{value}</span>
-                      </div>
-                      <div style={{ height: 4, background: 'var(--bg-2)', borderRadius: 2, overflow: 'hidden' }}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${value * 100}%` }}
-                          transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-                          style={{ height: '100%', background: color, borderRadius: 2 }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </motion.div>
-
-                {/* Reward formula */}
-                <motion.div {...fadeUp(0.1)} className="card" style={{ padding: '18px 20px' }}>
-                  <p style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 6, fontWeight: 500, letterSpacing: '-0.01em' }}>
-                    Reward function
-                  </p>
-                                  <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.7 }}>
-                                      R = 0.65 · F1<br />
-                                      + 0.20 · early<br />
-                                      + 0.10 · recall<br />
-                                      − 0.20 · FP
-                                  </p>
-                </motion.div>
-              </div>
-
-              {/* Reward chart */}
-              <motion.div {...fadeUp(0.08)} className="card" style={{ padding: '24px', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22 }}>
-                  <TrendingUp size={16} color="var(--text-3)" />
-                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>
-                    Reward over training
-                  </span>
-                  {/* FIX: badge-neutral → badge-muted */}
-                  <span className={`badge ${isTrained ? 'badge-blue' : 'badge-muted'}`} style={{ marginLeft: 'auto', fontSize: 12 }}>
-                    {isTrained ? 'GRPO' : 'Baseline'}
-                  </span>
-                </div>
-                <div style={{ height: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={rewardHistory} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                      <defs>
-                        <linearGradient id="rewardGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={isTrained ? '#1D6AE8' : '#7A7870'} stopOpacity={0.18} />
-                          <stop offset="100%" stopColor={isTrained ? '#1D6AE8' : '#7A7870'} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="2 6" stroke="var(--border)" vertical={false} />
-                      <XAxis
-                        dataKey="step"
-                        tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'DM Mono, monospace' }}
-                        tickLine={false} axisLine={false}
-                      />
-                      <YAxis
-                        domain={[0, 1]}
-                        tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'DM Mono, monospace' }}
-                        tickLine={false} axisLine={false} tickCount={5}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <ReferenceLine y={0.5} stroke="var(--border-2)" strokeDasharray="4 4" />
-                      <Area
-                        type="monotone" dataKey="reward"
-                        stroke={isTrained ? 'var(--accent)' : 'var(--text-3)'}
-                        strokeWidth={2}
-                        fill="url(#rewardGrad)"
-                        dot={false}
-                        animationDuration={800}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, textAlign: 'center', fontFamily: 'DM Mono, monospace' }}>
-                  training steps →
-                </p>
-              </motion.div>
+                )}
+              </SectionState>
             </div>
 
+            <div style={{ marginBottom: 48 }}>
+              <h2 style={H2}>4 · Other recorded experiments</h2>
+              <p style={LEAD}>Separate experiments with their own sample counts. They are listed for provenance, not blended into the Run 1 or Run 2 results above.</p>
+              <SectionState section={results?.others}>{(o) => <OtherExperimentsTable data={o} />}</SectionState>
+            </div>
+
+            <div>
+              <h2 style={H2}>5 · Live episode (interactive demo)</h2>
+              <p style={LEAD}>
+                One episode from the running backend, decided by the scripted rule panel and graded by <code>/grader</code>. It is telemetry for this single run, not a
+                baseline-vs-trained comparison.
+              </p>
+              <div style={{ marginBottom: 16 }}>
+                <ScriptedPanelNote />
+              </div>
+              <div style={{ margin: '0 0 20px', borderRadius: 10, overflow: 'hidden' }}>
+                <StatusBanner />
+              </div>
+              <EpisodeGate>{(ep) => <LiveEpisode episode={ep} />}</EpisodeGate>
+            </div>
           </div>
         </section>
       </main>
     </>
   )
 }
-
-

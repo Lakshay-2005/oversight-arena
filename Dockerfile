@@ -40,7 +40,13 @@ COPY oversight-arena-ui/package*.json ./
 RUN npm ci
 
 COPY oversight-arena-ui ./
-RUN npm run build && test -d out && ls -la out
+# The UI build copies these recorded results into the static export (scripts/sync-results.mjs
+# reads ../results, i.e. /app/results), so the Results page shows exactly the committed files.
+COPY results /app/results
+# Docs that the Results page quotes for the documentation-reported Run 1 result (lib/documented.ts).
+COPY README.md blog.md /app/
+COPY docs/judge_qa.md /app/docs/judge_qa.md
+RUN npm run build && test -d out && test -f out/results-data/eval_grpo_summary.json && ls -la out
 
 
 # ----------------------------

@@ -3,7 +3,8 @@
 export default function OversightScene() {
   return (
     <>
-      <style>{`
+      {/* dangerouslySetInnerHTML: a multi-line text child hydrates differently with CRLF checkouts (React #418/#425). */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes workerBob {
           0%,100% { transform: translateY(0px); }
           50%      { transform: translateY(-5px); }
@@ -89,7 +90,7 @@ export default function OversightScene() {
         .sc-clx        { animation: exclaim     1.1s ease-in-out infinite 0.3s; transform-origin: 105px 33px; }
         .sc-glow       { animation: scanGlow    1.8s ease-in-out infinite 1s; }
         .sc-float      { animation: sceneFloat  4s   ease-in-out infinite; }
-      `}</style>
+      ` }} />
 
       {/* Removed pointerEvents: 'none' to allow hover interactions */}
       <div style={{ width: '100%', userSelect: 'none' }}>
