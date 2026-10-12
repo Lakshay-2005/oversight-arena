@@ -1,155 +1,106 @@
 /**
  * lib/api.ts
- * All HTTP calls go through the Next.js proxy: /api/* → http://localhost:7860/*
- * The backend (FastAPI) runs on port 7860 (HF Spaces default).
- * Configure BACKEND_URL env var to point to a different backend.
+ * HTTP client for the Oversight Arena FastAPI backend.
+ *
+ * Base URL:
+ *   - default "/api": same origin. In the Docker image / HF Space, FastAPI serves
+ *     this static export AND the /api/* aliases, so no configuration is needed.
+ *   - NEXT_PUBLIC_API_BASE overrides it for `npm run dev` (Next's static-export
+ *     dev server has no proxy), e.g. http://127.0.0.1:7860/api. The backend
+ *     allows cross-origin requests. The value is inlined at build time.
+ *
+ * Every response is validated by lib/contracts.ts before it reaches the store.
  */
 
-const BASE = '/api'
+import {
+  parseGrader,
+  parseHealth,
+  parseResetResponse,
+  parseState,
+  parseStepResponse,
+  type BackendGraderResponse,
+  type BackendResetResponse,
+  type BackendState,
+  type BackendStepResponse,
+  type OverseerActionPayload,
+} from './contracts'
 
-// ─── Raw backend shapes ────────────────────────────────────────────────────
+export type {
+  BackendGraderResponse,
+  BackendObservation,
+  BackendResetResponse,
+  BackendState,
+  BackendStepResponse,
+  OverseerActionPayload,
+} from './contracts'
 
-export interface BackendObservation {
-  turn: number
-  workers: string[]
-  focused_patch_diff: string
-  message: string
-  reward?: number
-  done?: boolean
+export function normalizeApiBase(value: string | undefined): string {
+  const trimmed = (value ?? '').trim().replace(/\/+$/, '')
+  return trimmed === '' ? '/api' : trimmed
 }
 
-export interface BackendState {
-  episode_id: string
-  step_count: number
-  max_turns: number
-  done: boolean
-  workers: string[]
-  malicious_workers: string[]
-  flagged_workers: string[]
-  rejected_workers: string[]
-  action_history: string[]
-  cumulative_reward: number
-  terminal_reward: number | null
-  difficulty: number
-  suspicion_log: Array<{
-    turn: number
-    action: string
-    worker_id: string
-    reasoning: string
-    cwe_tag: string
-    was_malicious: boolean
-  }>
-  worker_pattern_ids: string[]
-  malicious_pattern_ids: string[]
-  malicious_tier: string
+export const API_BASE = normalizeApiBase(process.env.NEXT_PUBLIC_API_BASE)
+
+export type ApiErrorKind = 'network' | 'http' | 'shape'
+
+export class ApiError extends Error {
+  constructor(public kind: ApiErrorKind, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
 }
 
-export interface BackendResetResponse {
-  observation: BackendObservation
-  state?: BackendState
-  // The backend may return observation directly at top level
-  turn?: number
-  workers?: string[]
-  focused_patch_diff?: string
-  message?: string
-}
-
-export interface BackendStepResponse {
-  observation?: BackendObservation
-  reward: number
-  done: boolean
-  state?: BackendState
-  // top-level fields too
-  turn?: number
-  focused_patch_diff?: string
-}
-
-export interface BackendGraderResponse {
-  metric: string
-  success: boolean
-  reward: number
-  f1: number
-  precision: number
-  recall: number
-  tp: number
-  fp: number
-  fn: number
-  malicious_workers: string[]
-  flagged_workers: string[]
-  step_count: number
-  done: boolean
-  guardrails_triggered: string[]
-  malicious_tier: string
-  correct_flags: number
-  wrong_flags: number
-}
-
-export interface OverseerActionPayload {
-  action: 'flag_worker' | 'accept_all' | 'inspect_patch' | 'reject_patch' | 'request_resubmit'
-  worker_id?: string
-  reasoning?: string
-  cwe_tag?: string
-  suspicion_scores?: Record<string, number>
-}
-
-// ─── Core fetch helpers ────────────────────────────────────────────────────
-
-async function post<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+async function request(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown> {
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+  } catch (err) {
+    throw new ApiError('network', `Cannot reach ${API_BASE}${path} (${err instanceof Error ? err.message : 'network error'})`)
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`POST ${path} → ${res.status}: ${text}`)
+    const detail = text && !text.trimStart().startsWith('<') ? `: ${text.slice(0, 200)}` : ''
+    throw new ApiError('http', `${method} ${API_BASE}${path} → ${res.status}${detail}`)
   }
-  return res.json()
+  try {
+    return await res.json()
+  } catch {
+    throw new ApiError('shape', `${method} ${path} did not return JSON`)
+  }
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`GET ${path} → ${res.status}: ${text}`)
+async function validated<T>(raw: Promise<unknown>, parse: (v: unknown) => T): Promise<T> {
+  const body = await raw
+  try {
+    return parse(body)
+  } catch (err) {
+    throw new ApiError('shape', err instanceof Error ? err.message : 'invalid response')
   }
-  return res.json()
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────
 
-// In lib/api.ts — make sure this is the signature:
-export const apiReset = (seed?: number, difficulty?: number) =>
-  post<BackendResetResponse>('/reset', {
-    ...(seed !== undefined && { seed }),
-    ...(difficulty !== undefined && { difficulty }),
-  })
+export const apiReset = (seed?: number, difficulty?: number): Promise<BackendResetResponse> =>
+  validated(
+    request('POST', '/reset', {
+      ...(seed !== undefined && { seed }),
+      ...(difficulty !== undefined && { difficulty }),
+    }),
+    parseResetResponse,
+  )
 
-export const apiStep = (action: OverseerActionPayload) =>
-  post<BackendStepResponse>('/step', action)
+export const apiStep = (action: OverseerActionPayload): Promise<BackendStepResponse> =>
+  validated(request('POST', '/step', action), parseStepResponse)
 
-export const apiState = () => get<BackendState>('/state')
+export const apiState = (): Promise<BackendState> => validated(request('GET', '/state'), (v) => parseState(v))
 
-export const apiGrader = () => get<BackendGraderResponse>('/grader')
+export const apiGrader = (): Promise<BackendGraderResponse> => validated(request('GET', '/grader'), parseGrader)
 
-export const apiHealth = async (): Promise<boolean> => {
-  try {
-    await get<{ status: string }>('/health')
-    return true
-  } catch {
-    return false
-  }
-}
-
-// Legacy hook-style request (used by hooks/useGame.js)
-export async function apiRequest(path: string, options?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`${options?.method ?? 'GET'} ${path} → ${res.status}: ${text}`)
-  }
-  return res.json()
+/** Resolves when the backend reports healthy; rejects with an ApiError otherwise. */
+export const apiHealth = async (): Promise<void> => {
+  await validated(request('GET', '/health'), parseHealth)
 }
