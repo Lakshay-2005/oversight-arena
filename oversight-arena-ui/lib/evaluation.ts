@@ -13,6 +13,8 @@
  *   3. live single-episode telemetry   (store/arenaStore.ts, from the running backend)
  */
 
+import { DOC_FILES, parseDocumentedBest, type DocumentedBest } from './documented'
+
 export const RESULTS_BASE = '/results-data'
 
 export const RESULT_FILES = {
@@ -127,6 +129,9 @@ export interface OtherExperiments {
 export type Section<T> = { ok: true; data: T } | { ok: false; error: string }
 
 export interface ResultsBundle {
+  /** Documentation-reported best result (GRPO Run 1). Not backed by files in results/. */
+  documented: Section<DocumentedBest>
+  /** JSON-backed Run 2 comparison. Never mixed with `documented`. */
   comparison: Section<EvalComparison>
   training: Section<TrainingHistory>
   others: Section<OtherExperiments>
@@ -439,7 +444,13 @@ export async function loadResultsBundle(readText: (file: string) => Promise<stri
       throw new Error(`${file}: not valid JSON`)
     }
   }
+  // Docs live under docs/ in the synced folder; the README is required, the cross-reference docs are optional.
+  const [readme, blog, judge] = await Promise.all([DOC_FILES.readme, DOC_FILES.blog, DOC_FILES.judgeQa].map((f) => read(`docs/${f}`)))
   return {
+    documented: section(() => {
+      if (!readme.ok) throw new Error(readme.error)
+      return parseDocumentedBest(readme.text, blog.ok ? blog.text : null, judge.ok ? judge.text : null)
+    }),
     comparison: section(() =>
       buildComparison(json(baseline, RESULT_FILES.baselineEval), json(trained, RESULT_FILES.trainedEval), summary.ok ? json(summary, RESULT_FILES.trainingSummary) : null),
     ),

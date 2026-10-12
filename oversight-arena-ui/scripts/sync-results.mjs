@@ -25,6 +25,15 @@ export const SYNCED_FILES = [
   'grpo_rewards.csv',
 ]
 
+// Docs the dashboard quotes for the documentation-reported Run 1 result (see lib/documented.ts), as
+// [file name in public/results-data/docs, path relative to the repo root, required?].
+// Keep in sync with DOC_FILES in lib/documented.ts (a test asserts this).
+export const SYNCED_DOCS = [
+  ['README.md', 'README.md', true],
+  ['blog.md', 'blog.md', false],
+  ['judge_qa.md', 'docs/judge_qa.md', false],
+]
+
 const here = dirname(fileURLToPath(import.meta.url))
 const uiRoot = resolve(here, '..')
 const source = resolve(process.env.RESULTS_DIR ?? join(uiRoot, '..', 'results'))
@@ -40,3 +49,19 @@ rmSync(dest, { recursive: true, force: true })
 mkdirSync(dest, { recursive: true })
 for (const f of SYNCED_FILES) copyFileSync(join(source, f), join(dest, f))
 console.log(`[sync-results] copied ${SYNCED_FILES.length} files from ${source} -> public/results-data/`)
+
+const repoRoot = dirname(source)
+mkdirSync(join(dest, 'docs'), { recursive: true })
+for (const [name, rel, required] of SYNCED_DOCS) {
+  const from = join(repoRoot, rel)
+  if (!existsSync(from)) {
+    if (required) {
+      console.error(`[sync-results] missing required doc: ${from}`)
+      process.exit(1)
+    }
+    console.warn(`[sync-results] optional doc not found, skipping: ${from}`)
+    continue
+  }
+  copyFileSync(from, join(dest, 'docs', name))
+}
+console.log(`[sync-results] copied docs from ${repoRoot} -> public/results-data/docs/`)

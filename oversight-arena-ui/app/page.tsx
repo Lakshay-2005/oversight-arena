@@ -6,6 +6,7 @@ import OversightScene from '@/components/OversightScene'
 import StatusBanner from '@/components/StatusBanner'
 import { useResults } from '@/hooks/useResults'
 import { fmtMetric, fmtSignedMetric, fmtSignedPct, type EvalComparison, type TrainingHistory } from '@/lib/evaluation'
+import type { DocumentedBest } from '@/lib/documented'
 import { ArrowRight, Shield, Cpu, TrendingUp, Activity } from 'lucide-react'
 
 const fadeUp = (delay = 0) => ({
@@ -28,6 +29,7 @@ interface Tile {
 }
 
 function recordedTiles(
+  documented: DocumentedBest | null,
   comparison: EvalComparison | null,
   training: TrainingHistory | null,
   loading: boolean,
@@ -36,14 +38,25 @@ function recordedTiles(
   const unavailable = loading ? 'Loading recorded results…' : `Recorded results unavailable: ${errors.join('; ') || 'unknown error'}`
   return [
     { label: 'Worker Agents', value: '3', sub: 'scripted workers · 0–2 malicious per episode' },
-    comparison
+    documented
       ? {
-          label: `Held-out F1 · ${comparison.experimentId}`,
-          value: `${fmtMetric(comparison.baseline.f1)} → ${fmtMetric(comparison.trained.f1)}`,
-          sub: `baseline → GRPO · n=${comparison.n}, difficulty ${comparison.difficulty} · ${fmtSignedMetric(comparison.delta.f1Abs)} abs (${fmtSignedPct(comparison.delta.f1RelPct)} rel)`,
+          label: `Best trained F1 · ${documented.title}`,
+          value: `${fmtMetric(documented.baselineF1)} → ${fmtMetric(documented.trainedF1)}`,
+          sub:
+            `untrained → GRPO, +${documented.reportedRelPct}% as reported in the README (raw files not committed)` +
+            (comparison
+              ? ` · Run 2, committed files, n=${comparison.n}, difficulty ${comparison.difficulty}: ${fmtMetric(comparison.baseline.f1)} → ${fmtMetric(comparison.trained.f1)} (${fmtSignedMetric(comparison.delta.f1Abs)} abs)`
+              : ''),
           accent: true,
         }
-      : { label: 'Held-out F1', value: '—', sub: unavailable },
+      : comparison
+        ? {
+            label: `Held-out F1 · ${comparison.experimentId}`,
+            value: `${fmtMetric(comparison.baseline.f1)} → ${fmtMetric(comparison.trained.f1)}`,
+            sub: `baseline → GRPO · n=${comparison.n}, difficulty ${comparison.difficulty} · ${fmtSignedMetric(comparison.delta.f1Abs)} abs (${fmtSignedPct(comparison.delta.f1RelPct)} rel)`,
+            accent: true,
+          }
+        : { label: 'Held-out F1', value: '—', sub: unavailable },
     // 11 patterns × 3 malicious variants each (oversight_arena/sabotage_catalog.py).
     { label: 'Sabotage Variants', value: '33', sub: '11 CWE patterns × 3 escalation variants' },
     training
@@ -64,7 +77,8 @@ export default function Home() {
   const errors = results
     ? [results.comparison, results.training].flatMap((s) => (s.ok ? [] : [s.error]))
     : []
-  const tiles = recordedTiles(comparison, training, results === null, errors)
+  const documented = results?.documented.ok ? results.documented.data : null
+  const tiles = recordedTiles(documented, comparison, training, results === null, errors)
 
   const inspect = comparison?.actionDistribution
   const rewardDesc =

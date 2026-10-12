@@ -4,6 +4,7 @@ import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import StatusBanner from '@/components/StatusBanner'
 import EpisodeGate from '@/components/EpisodeGate'
+import BestResultHero from '@/components/BestResultHero'
 import RecordedComparison from '@/components/RecordedComparison'
 import TrainingRewardChart from '@/components/TrainingRewardChart'
 import ScriptedPanelNote from '@/components/ScriptedPanelNote'
@@ -75,9 +76,9 @@ function OtherExperimentsTable({ data }: { data: OtherExperiments }) {
         </table>
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6, marginTop: 14 }}>
-        Source: {data.sources.map((s) => `results/${s}`).join(', ')}. These use a different sample count (n = 20) than the Run 2 comparison above, so the F1
-        values are not comparable with it. The ablation file does not record a difficulty. GRPO Run 1 (curriculum, difficulty 0.2–0.6) is described in the
-        README and blog only; its raw evaluation files are not in <code>results/</code>, so it is not plotted here.
+        Source: {data.sources.map((s) => `results/${s}`).join(', ')}. These use a different sample count (n = 20) than the Run 1 and Run 2 results above, so the F1
+        values are not comparable with them. The ablation file does not record a difficulty. GRPO Run 1 appears only as the documentation-reported
+        headline in section 1; its raw evaluation files are not in <code>results/</code>, so no further Run 1 detail is shown.
       </p>
     </div>
   )
@@ -188,7 +189,7 @@ export default function ResultsPage() {
                   Results
                 </motion.h1>
                 <motion.p {...fadeUp(0.1)} style={{ fontSize: 17, color: 'var(--text-2)', lineHeight: 1.5, letterSpacing: '-0.02em', maxWidth: 560 }}>
-                  Recorded experiments, training history and the live episode are three different things and are kept in separate sections below.
+                  The documented best run, the committed Run 2 evaluation, training history and the live episode are different things and are kept in separate sections below.
                 </motion.p>
               </div>
               <motion.div {...fadeUp(0.12)}>
@@ -205,13 +206,22 @@ export default function ResultsPage() {
         <section style={{ padding: '44px 0 88px' }}>
           <div className="page-container">
             <div style={{ marginBottom: 48 }}>
-              <h2 style={H2}>1 · Recorded evaluation: baseline vs GRPO</h2>
-              <p style={LEAD}>Held-out episodes scored with the environment&apos;s grader. This is the evidence for whether training helped.</p>
+              <h2 style={H2}>1 · Best result: GRPO Run 1 (documented)</h2>
+              <p style={LEAD}>The README&apos;s headline result. It is reported by the project documentation; its raw evaluation files are not in the repository.</p>
+              <SectionState section={results?.documented}>{(d) => <BestResultHero best={d} />}</SectionState>
+            </div>
+
+            <div style={{ marginBottom: 48 }}>
+              <h2 style={H2}>2 · Run 2 confirmation: baseline vs GRPO (committed files)</h2>
+              <p style={LEAD}>
+                A separate run, fixed difficulty 0.4, measured from the committed evaluation files. Its trained F1 is <strong>not</strong> the Run 1 figure above; the two
+                runs are never combined.
+              </p>
               <SectionState section={results?.comparison}>{(c) => <RecordedComparison comparison={c} />}</SectionState>
             </div>
 
             <div style={{ marginBottom: 48 }}>
-              <h2 style={H2}>2 · Training history</h2>
+              <h2 style={H2}>3 · Training history (Run 2)</h2>
               <p style={LEAD}>
                 Mean reward the GRPO trainer logged at each step. This is the training signal on training prompts, not held-out F1, so its level cannot be compared
                 with the F1 values above.
@@ -239,13 +249,13 @@ export default function ResultsPage() {
             </div>
 
             <div style={{ marginBottom: 48 }}>
-              <h2 style={H2}>3 · Other recorded experiments</h2>
-              <p style={LEAD}>Separate experiments with their own sample counts. They are listed for provenance, not blended into the comparison above.</p>
+              <h2 style={H2}>4 · Other recorded experiments</h2>
+              <p style={LEAD}>Separate experiments with their own sample counts. They are listed for provenance, not blended into the Run 1 or Run 2 results above.</p>
               <SectionState section={results?.others}>{(o) => <OtherExperimentsTable data={o} />}</SectionState>
             </div>
 
             <div>
-              <h2 style={H2}>4 · Live episode (interactive demo)</h2>
+              <h2 style={H2}>5 · Live episode (interactive demo)</h2>
               <p style={LEAD}>
                 One episode from the running backend, decided by the scripted rule panel and graded by <code>/grader</code>. It is telemetry for this single run, not a
                 baseline-vs-trained comparison.

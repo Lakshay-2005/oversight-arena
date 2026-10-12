@@ -23,7 +23,10 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url))
 const RESULTS = resolve(here, '..', '..', 'results')
-const readText = (f: string) => readFileSync(join(RESULTS, f), 'utf8')
+const REPO = resolve(here, '..', '..')
+// Bundle files: 'docs/<name>' are the Markdown docs synced from the repo (README.md, blog.md, docs/judge_qa.md).
+const DOC_PATHS: Record<string, string> = { 'docs/README.md': 'README.md', 'docs/blog.md': 'blog.md', 'docs/judge_qa.md': 'docs/judge_qa.md' }
+const readText = (f: string) => readFileSync(DOC_PATHS[f] ? join(REPO, DOC_PATHS[f]) : join(RESULTS, f), 'utf8')
 const readJson = (f: string): Record<string, any> => JSON.parse(readText(f))
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} !== ${b}`)
@@ -194,7 +197,7 @@ test('ablation and Groq reference are read from their own files with their own n
 
 test('bundle loads every section from the real files', async () => {
   const b = await loadResultsBundle(async (f) => readText(f))
-  assert.ok(b.comparison.ok && b.training.ok && b.others.ok)
+  assert.ok(b.documented.ok && b.comparison.ok && b.training.ok && b.others.ok)
 })
 
 test('a missing/invalid file fails only its own section', async () => {
