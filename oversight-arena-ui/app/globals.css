@@ -415,6 +415,14 @@ body {
 }
 .icon-btn:hover { color: var(--text-1); background: var(--surface-2); border-color: var(--border-2); }
 
+/* ══ TWO-COLUMN SPLIT (content + sticky side panel) ══════════════════════ */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 24px; align-items: start; }
+.sticky-panel { position: sticky; top: 76px; }
+@media (max-width: 900px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .sticky-panel { position: static; }
+}
+
 /* ══ FOOTER ═══════════════════════════════════════════════════════════════ */
 .footer {
   border-top: 1px solid var(--border);
