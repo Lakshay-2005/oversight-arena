@@ -423,6 +423,52 @@ body {
   .sticky-panel { position: static; }
 }
 
+/* ══ REVEAL ON SCROLL ═══════════════════════════════════════════════════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/* ══ HERO DIFF REVEAL (predetermined — runs off the main thread) ═══════ */
+@keyframes lineIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.diff-line-in { opacity: 0; animation: lineIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+@keyframes stampIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+.stamp-in { opacity: 0; animation: stampIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+/* ══ TIMELINE ═══════════════════════════════════════════════════════════ */
+.timeline { position: relative; }
+.timeline::before {
+  content: ''; position: absolute; left: 7px; top: 10px; bottom: 10px;
+  width: 1px; background: var(--border-2);
+}
+.timeline-step { position: relative; padding-left: 44px; padding-bottom: 44px; }
+.timeline-step:last-child { padding-bottom: 4px; }
+.timeline-dot {
+  position: absolute; left: 0; top: 5px; width: 15px; height: 15px;
+  border-radius: 50%; background: var(--bg); border: 2px solid var(--accent);
+}
+
+/* ══ STEPPER ════════════════════════════════════════════════════════════ */
+.stepper-track { display: flex; gap: 4px; margin-bottom: 24px; }
+.stepper-tab {
+  flex: 1; text-align: left; padding: 12px 14px;
+  background: transparent; border: 0; border-top: 2px solid var(--border);
+  cursor: pointer; color: var(--text-3);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.stepper-tab:hover { color: var(--text-1); }
+.stepper-tab[aria-selected="true"] { border-top-color: var(--accent); color: var(--text-1); background: var(--bg-2); }
+.stepper-view { transition: opacity 0.25s ease; }
+
 /* ══ FOOTER ═══════════════════════════════════════════════════════════════ */
 .footer {
   border-top: 1px solid var(--border);
