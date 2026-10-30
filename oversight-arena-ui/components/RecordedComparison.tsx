@@ -8,7 +8,7 @@ const LABEL: React.CSSProperties = {
   fontWeight: 500,
 }
 
-function Bar({ label, value, color }: { label: string; value: number; color: string }) {
+function Bar({ label, value, color, delay = 0 }: { label: string; value: number; color: string; delay?: number }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
@@ -23,7 +23,7 @@ function Bar({ label, value, color }: { label: string; value: number; color: str
         role="img"
         aria-label={`${label}: F1 ${fmtMetric(value)} on a 0 to 1 scale`}
       >
-        <div style={{ width: `${value * 100}%`, height: '100%', background: color, borderRadius: 4 }} />
+        <div className="bar-grow" style={{ width: `${value * 100}%`, height: '100%', background: color, borderRadius: 4, animationDelay: `${delay}ms` }} />
       </div>
     </div>
   )
@@ -54,8 +54,8 @@ export default function RecordedComparison({ comparison: c }: { comparison: Eval
       <div style={{ display: 'grid', gap: 24, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         <div>
           <p style={LABEL}>Mean F1 (0–1 scale)</p>
-          <Bar label="Baseline (untrained Qwen-2.5-1.5B)" value={c.baseline.f1} color="var(--text-3)" />
-          <Bar label="GRPO trained" value={c.trained.f1} color="var(--accent)" />
+          <Bar label="Baseline (untrained Qwen-2.5-1.5B)" value={c.baseline.f1} color="var(--text-3)" delay={100} />
+          <Bar label="GRPO trained" value={c.trained.f1} color="var(--accent)" delay={220} />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-4)' }} className="num">
             <span>0</span>
             <span>1</span>

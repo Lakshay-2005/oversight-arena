@@ -61,8 +61,8 @@ export default function TrainingRewardChart({ history }: { history: TrainingHist
           <Tooltip content={<ChartTooltip />} />
           <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
           <ReferenceLine y={0} stroke="var(--border-2)" strokeDasharray="4 4" />
-          <Line type="monotone" dataKey="reward" name="Reward per logged step" stroke="var(--text-4)" strokeWidth={1} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="avg" name={`${WINDOW}-step moving average`} stroke="var(--accent)" strokeWidth={2.2} dot={false} isAnimationActive={false} />
+          <Line type="monotone" dataKey="reward" name="Reward per logged step" stroke="var(--text-4)" strokeWidth={1} dot={false} animationDuration={900} animationEasing="ease-out" />
+          <Line type="monotone" dataKey="avg" name={`${WINDOW}-step moving average`} stroke="var(--accent)" strokeWidth={2.2} dot={false} animationDuration={900} animationEasing="ease-out" />
         </LineChart>
       </ResponsiveContainer>
     </div>

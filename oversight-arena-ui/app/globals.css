@@ -469,6 +469,16 @@ body {
 .stepper-tab[aria-selected="true"] { border-top-color: var(--accent); color: var(--text-1); background: var(--bg-2); }
 .stepper-view { transition: opacity 0.25s ease; }
 
+/* ══ BAR GROW (chart entrance) ═══════════════════════════════════════════ */
+@keyframes barGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.bar-grow {
+  transform-origin: left center;
+  animation: barGrow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* ══ FOOTER ═══════════════════════════════════════════════════════════════ */
 .footer {
   border-top: 1px solid var(--border);
