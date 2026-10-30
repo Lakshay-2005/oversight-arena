@@ -1,37 +1,29 @@
 'use client'
-import { motion } from 'framer-motion'
 import { fmtExact, fmtMetric, fmtSignedMetric, fmtSignedPct, type EvalComparison } from '@/lib/evaluation'
 
 const LABEL: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 13,
   color: 'var(--text-3)',
-  marginBottom: 6,
+  marginBottom: 10,
   fontWeight: 500,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
 }
 
 function Bar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, gap: 8 }}>
-        <span style={{ fontSize: 13, color: 'var(--text-1)' }}>{label}</span>
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
+        <span style={{ fontSize: 13.5, color: 'var(--text-1)' }}>{label}</span>
         <span className="num" style={{ fontSize: 13, fontWeight: 500, color }} title={`exact: ${fmtExact(value)}`}>
           {fmtMetric(value)}
         </span>
       </div>
       {/* Full 0–1 axis: bar length is the F1 value itself. */}
       <div
-        style={{ height: 8, background: 'var(--bg-2)', borderRadius: 4, overflow: 'hidden' }}
+        style={{ height: 8, background: 'var(--bg-3)', borderRadius: 4, overflow: 'hidden' }}
         role="img"
         aria-label={`${label}: F1 ${fmtMetric(value)} on a 0 to 1 scale`}
       >
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${value * 100}%` }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          style={{ height: '100%', background: color, borderRadius: 4 }}
-        />
+        <div style={{ width: `${value * 100}%`, height: '100%', background: color, borderRadius: 4 }} />
       </div>
     </div>
   )
@@ -45,9 +37,9 @@ export default function RecordedComparison({ comparison: c }: { comparison: Eval
 
   return (
     <div className="card" style={{ padding: '24px' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-        <h3 style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text-1)' }}>{c.title}</h3>
-        <span className="badge badge-blue">Recorded held-out evaluation</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 6 }}>
+        <h3 className="h3">{c.title}</h3>
+        <span className="stamp stamp-info">Recorded held-out evaluation</span>
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 20 }}>
         {c.experimentId} · n = {c.n} held-out episodes · difficulty {c.difficulty}
@@ -173,7 +165,7 @@ export default function RecordedComparison({ comparison: c }: { comparison: Eval
         difference. Differences are computed in the browser from those files, not typed in.
       </p>
       {c.warnings.length > 0 && (
-        <div className="note-box" style={{ marginTop: 12, borderColor: 'var(--amber-border)', background: 'var(--amber-bg)' }} role="alert">
+        <div className="note-box" style={{ marginTop: 12 }} role="alert">
           <strong>Data consistency warning:</strong> {c.warnings.join('; ')}
         </div>
       )}

@@ -5,6 +5,8 @@ import { movingAverage, type TrainingHistory } from '@/lib/evaluation'
 
 const WINDOW = 10
 
+const MONO_TICK = { fill: 'var(--text-3)', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }
+
 interface Row {
   step: number
   reward: number
@@ -42,14 +44,14 @@ export default function TrainingRewardChart({ history }: { history: TrainingHist
             dataKey="step"
             type="number"
             domain={['dataMin', 'dataMax']}
-            tick={{ fill: 'var(--text-3)', fontSize: 11 }}
+            tick={MONO_TICK}
             tickLine={false}
             axisLine={{ stroke: 'var(--border)' }}
             label={{ value: 'Training step (logged)', position: 'insideBottom', offset: -12, fill: 'var(--text-3)', fontSize: 12 }}
           />
           <YAxis
             domain={['auto', 'auto']}
-            tick={{ fill: 'var(--text-3)', fontSize: 11 }}
+            tick={MONO_TICK}
             tickFormatter={(v: number) => v.toFixed(1)}
             tickLine={false}
             axisLine={false}
