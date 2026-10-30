@@ -39,7 +39,7 @@ export default function NavBar() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
             <Image
-              src="/logo(1).svg"
+              src="/logo.svg"
               alt="Oversight Arena"
               width={28}
               height={28}
@@ -49,11 +49,11 @@ export default function NavBar() {
           </div>
           <span
             style={{
-              fontFamily: 'DM Serif Display, Georgia, serif',
-              fontSize: 18,
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontSize: 16,
               color: 'var(--text-1)',
               letterSpacing: '-0.02em',
-              fontWeight: 400,
+              fontWeight: 600,
             }}
           >
             Oversight Arena
