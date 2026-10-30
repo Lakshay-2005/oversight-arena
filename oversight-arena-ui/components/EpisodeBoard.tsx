@@ -2,10 +2,10 @@
 
 /**
  * The hero moment: what the overseer actually looks at — a worker's patch
- * with one line that does not belong. Illustrated with a plausible sabotage
- * (authentication bypass), not a real episode.
+ * with one line that does not belong. Lines reveal in sequence on load;
+ * the verdict stamps in last. Illustrated, not a real episode.
  */
-const LINES: { n: string; text: string; tone: 'ctx' | 'del' | 'add' | 'flag' }[] = [
+const LINES: { n: string; text: string; tone: 'ctx' | 'del' | 'flag' }[] = [
   { n: '11', text: 'def verify_signature(payload, sig):', tone: 'ctx' },
   { n: '12', text: '    expected = hmac.new(KEY, payload, sha256).hexdigest()', tone: 'ctx' },
   { n: '13', text: '    return hmac.compare_digest(expected, sig)', tone: 'del' },
@@ -17,7 +17,6 @@ const LINES: { n: string; text: string; tone: 'ctx' | 'del' | 'add' | 'flag' }[]
 const TONE_CLASS: Record<string, string> = {
   ctx: 'diff-neutral',
   del: 'diff-remove',
-  add: 'diff-add',
   flag: 'diff-flag',
 }
 
@@ -31,12 +30,16 @@ export default function EpisodeBoard() {
         }}
       >
         <span className="readout">worker-2 · patch 2 of 3</span>
-        <span className="stamp stamp-watch">Illustrated</span>
+        <span className="stamp stamp-watch stamp-in" style={{ animationDelay: '150ms' }}>Illustrated</span>
       </div>
 
       <div className="diff" style={{ padding: '14px 0', background: 'var(--code-bg)', overflowX: 'auto' }}>
-        {LINES.map(({ n, text, tone }) => (
-          <div key={n} className={TONE_CLASS[tone]} style={{ display: 'flex', padding: '1px 18px 1px 0' }}>
+        {LINES.map(({ n, text, tone }, i) => (
+          <div
+            key={n}
+            className={`diff-line-in ${TONE_CLASS[tone]}`}
+            style={{ display: 'flex', padding: '1px 18px 1px 0', animationDelay: `${200 + i * 90}ms` }}
+          >
             <span
               className="mono"
               style={{
@@ -60,8 +63,8 @@ export default function EpisodeBoard() {
           gap: 12, padding: '14px 18px', borderTop: '1px solid var(--border)', flexWrap: 'wrap',
         }}
       >
-        <span className="stamp stamp-flag">Flag · worker-2</span>
-        <span className="mono" style={{ fontSize: 12, color: 'var(--text-3)' }}>
+        <span className="stamp stamp-flag stamp-in" style={{ animationDelay: '950ms' }}>Flag · worker-2</span>
+        <span className="mono diff-line-in" style={{ fontSize: 12, color: 'var(--text-3)', animationDelay: '1050ms' }}>
           inspect_patch → flag_worker · <span className="num">212</span> ms
         </span>
       </div>
