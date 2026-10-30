@@ -2,7 +2,6 @@
 import NavBar from '@/components/NavBar'
 import StatusBanner from '@/components/StatusBanner'
 import EpisodeGate from '@/components/EpisodeGate'
-import { useArenaStore } from '@/store/arenaStore'
 import type { Episode, Worker } from '@/types'
 import { ArrowRight, Code2, Flag } from 'lucide-react'
 import Link from 'next/link'
