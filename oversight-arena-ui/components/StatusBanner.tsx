@@ -17,28 +17,28 @@ export default function StatusBanner() {
   const runEpisode = useArenaStore((s) => s.runEpisode)
 
   let tone: 'muted' | 'red' | 'green' = 'muted'
-  let icon = <Activity size={15} />
+  let icon = <Activity size={14} />
   let text: string
   let action: { label: string; run: () => void } | null = null
 
   if (connection === 'connecting') {
-    icon = <Loader2 size={15} className="pulse-dot" />
+    icon = <Loader2 size={14} className="pulse-dot" />
     text = 'Connecting to the backend…'
   } else if (connection === 'offline') {
     tone = 'red'
-    icon = <WifiOff size={15} />
+    icon = <WifiOff size={14} />
     text = `Backend unreachable${connectionMessage ? ` — ${connectionMessage}` : ''}. No episode data is shown; retrying automatically every 10 s.`
     action = { label: 'Retry now', run: () => void retry() }
   } else if (connection === 'error' || episodeStatus === 'error') {
     tone = 'red'
-    icon = <AlertTriangle size={15} />
+    icon = <AlertTriangle size={14} />
     text =
       episodeStatus === 'error'
         ? `Backend reachable but the live episode failed — ${episodeError ?? 'unexpected response'}.`
         : `Backend health check failed — ${connectionMessage ?? 'unexpected response'}.`
     action = { label: 'Retry', run: () => void retry() }
   } else if (episodeStatus === 'loading' || episodeStatus === 'idle') {
-    icon = <Loader2 size={15} className="pulse-dot" />
+    icon = <Loader2 size={14} className="pulse-dot" />
     text = 'Backend online — loading a live episode…'
   } else if (episode) {
     tone = 'green'
@@ -49,21 +49,22 @@ export default function StatusBanner() {
     action = { label: 'Load episode', run: () => void runEpisode() }
   }
 
-  const bg = tone === 'red' ? 'var(--red-bg)' : tone === 'green' ? 'var(--green-bg)' : 'var(--bg-2)'
-  const fg = tone === 'red' ? 'var(--red)' : tone === 'green' ? 'var(--green)' : 'var(--text-2)'
+  const bg = tone === 'red' ? 'var(--red-dim)' : tone === 'green' ? 'var(--green-dim)' : 'var(--bg-2)'
+  const dot = tone === 'red' ? 'var(--red)' : tone === 'green' ? 'var(--green)' : 'var(--text-3)'
 
   return (
     <section role="status" aria-live="polite" style={{ background: bg, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
       <div
-        className="page-container"
-        style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
+        className="wrap"
+        style={{ paddingTop: 13, paddingBottom: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, color: fg, flex: '1 1 320px', minWidth: 0 }}>
-          <span style={{ marginTop: 2, flexShrink: 0 }}>{icon}</span>
-          <span style={{ fontSize: 13.5, color: 'var(--text-1)', lineHeight: 1.5, letterSpacing: '-0.01em' }}>{text}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 340px', minWidth: 0 }}>
+          <span style={{ display: 'inline-flex', width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+          <span style={{ display: 'inline-flex', color: 'var(--text-3)', flexShrink: 0 }}>{icon}</span>
+          <span style={{ fontSize: 13.5, color: 'var(--text-1)', lineHeight: 1.5 }}>{text}</span>
         </div>
         {action && (
-          <button className="btn btn-secondary" style={{ fontSize: 13, padding: '6px 14px' }} onClick={action.run} disabled={episodeStatus === 'loading'}>
+          <button className="btn btn-secondary" style={{ fontSize: 13, padding: '7px 14px' }} onClick={action.run} disabled={episodeStatus === 'loading'}>
             <RefreshCw size={12} /> {action.label}
           </button>
         )}
